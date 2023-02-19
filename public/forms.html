@@ -9,9 +9,13 @@
 </head>
 <body>
 <h1>Forms Demo</h1>
-<form>
+<form action="http://127.0.0.1:9999" method="POST" enctype="multipart/form-data">
+  <input name="post" type="file" placeholder="file ">
+
+  <input name="login" placeholder="Login">
   <input name="login" placeholder="Login">
   <input name="password" type="password" placeholder="Password">
+  <input name="post" type="text" placeholder="enter">
   <button>Login</button>
 </form>
 </body>

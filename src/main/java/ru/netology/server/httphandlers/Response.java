@@ -5,6 +5,7 @@ public class Response {
 
     public static final String OK = "200 OK";
     public static final String NOT_Found = "404 Not Found";
+    public static final String Bad_Request = "400 Bad Request";
 
 
     private String status = OK;
@@ -30,6 +31,10 @@ public class Response {
 
     public String getHeaderOk(){
         this.status = OK;
+        return this.getHeader();
+    }
+    public String getBadRequest(){
+        this.status = Bad_Request;
         return this.getHeader();
     }
     public String getHeaderNotFound(){

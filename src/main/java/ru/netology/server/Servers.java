@@ -1,5 +1,6 @@
 package ru.netology.server;
 
+import ru.netology.server.exceptions.BadRequestException;
 import ru.netology.server.handlers.Handler;
 import ru.netology.server.httphandlers.Request;
 import ru.netology.server.httphandlers.Response;
@@ -33,15 +34,20 @@ public class Servers {
 
                         final Socket socket = serverSocket.accept();
 
+
                         executorService.submit(new Runnable() {
+
+                            private Response response = new Response();
+                            private BufferedOutputStream out;
+
                             @Override
                             public void run() {
                                 Map<String, Handler> handlerMap;
-                                final Request request = new Request(socket);
 
                                 try {
-                                    final var out = new BufferedOutputStream(socket.getOutputStream());
-                                    final Response response = new Response();
+                                    this.out = new BufferedOutputStream(socket.getOutputStream());
+                                    final Request request = new Request(socket);
+
 
                                     if (handlers.containsKey(request.getPath())){
                                         handlerMap = handlers.get(request.getPath());
@@ -62,6 +68,15 @@ public class Servers {
                                             out.write(response.getHeaderNotFound().getBytes());
                                             out.flush();
                                         }
+                                    }
+                                } catch (BadRequestException badRequestException) {
+                                    badRequestException.printStackTrace();
+                                    try {
+
+                                        this.out.write(this.response.getBadRequest().getBytes());
+
+                                    } catch (IOException e) {
+                                        e.printStackTrace();
                                     }
                                 } catch (IOException e) {
                                     e.printStackTrace();
