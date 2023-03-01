@@ -39,6 +39,11 @@ public class Servers {
                                 Map<String, Handler> handlerMap;
                                 final Request request = new Request(socket);
 
+                                //////////////////////////////////////////////////////////
+                                System.out.println(request.getQueryParam("name"));
+                                System.out.println(request.getQueryParams());
+                                //////////////////////////////////////////////////////////
+
                                 try {
                                     final var out = new BufferedOutputStream(socket.getOutputStream());
                                     final Response response = new Response();
