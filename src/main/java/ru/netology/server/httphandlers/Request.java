@@ -1,40 +1,122 @@
 package ru.netology.server.httphandlers;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.Socket;
-import java.util.List;
 import org.apache.http.NameValuePair;
+import org.apache.http.client.utils.URLEncodedUtils;
+import ru.netology.server.exceptions.BadRequestException;
+
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.net.Socket;
+import java.nio.charset.Charset;
+import java.util.Arrays;
+import java.util.List;
 
 public class Request {
 
     private final Socket socket;
-    private  BufferedReader in;
-    private  String path;
-    private  String method;
+    private BufferedInputStream in;
+    private String path;
+    private String method;
     private List<NameValuePair> bodyQuery;
+    private byte[] body;
+    private List<String> headers;
+    private String urlencodedType = "application/x-www-form-urlencoded";
 
 
     public Request(Socket socket) {
         this.socket = socket;
 
+        final int limit = 4096;
+        final byte[] doubleLineBreakDelimiter = new byte[]{'\r', '\n', '\r', '\n'};
+        final byte[] ordinaryLineBreakDelimiter = new byte[]{'\r', '\n'};
+
         try {
-            this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            this.in = new BufferedInputStream(this.socket.getInputStream());
+            this.in.mark(limit);
 
-            final String requestLine = in.readLine();
-            final String [] parts = requestLine.split(" ");
+            final byte[] buffer = new byte[limit];
+            final int maxLength = in.read(buffer);
+            final int requestLineEnd = this.indexOf(buffer, ordinaryLineBreakDelimiter, 0, maxLength);
 
-            if (parts.length != 3) {
-                System.out.println("No format");
-                return;
+            if (requestLineEnd == -1) {
+                throw new BadRequestException("Too long line");
             }
 
-            this.path = parts[1];
-            this.method = parts[0];
+            final String[] requestLine = new String(Arrays.copyOf(buffer, requestLineEnd)).split(" ");
+
+
+            if (requestLine.length != 3) {
+                throw new BadRequestException("Not correct request line");
+            }
+
+            this.method = requestLine[0];
+            this.path = requestLine[1];
+
+            if (path.indexOf("?") != -1) {
+                final String[] separated = this.path.split("\\?");
+                this.path = separated[0];
+            }
+
+            this.in.reset();
+
+            // ------------HEADERS--------------------------------------------------------------
+            final int headersStart = requestLineEnd + ordinaryLineBreakDelimiter.length;
+            final int headersEnd = this.indexOf(buffer, doubleLineBreakDelimiter, headersStart, maxLength);
+
+            if (headersEnd == -1) {
+                throw new BadRequestException("Too long line");
+            }
+
+            in.skip(headersStart);
+
+            final byte[] headersArr = in.readNBytes(headersEnd - headersStart);
+            this.headers = Arrays.asList(new String(headersArr).split("\r\n"));
+
+            // -------------BODY-----------------------------------------------------------------
+            if (!(requestLine[0].equals("GET"))) {
+                this.body = this.bodyHandle(in, doubleLineBreakDelimiter.length, doubleLineBreakDelimiter);
+            }
+
+
+
         } catch (NullPointerException | IOException e) {
             System.out.println(e);
         }
+    }
+
+
+    private byte[] bodyHandle(BufferedInputStream in, int skip, byte[] delimiter) throws IOException {
+        byte[] body = null;
+
+        in.skip(skip);
+
+        int contentLength = 0;
+        for (String el : this.headers) {
+            if (el.startsWith("Content-Length")) {
+                final String[] contentLengthHeader = el.split(" ");
+                contentLength = Integer.parseInt(contentLengthHeader[1]);
+            }
+        }
+
+        if (contentLength != 0) {
+            body = in.readNBytes(contentLength);
+
+        }
+
+        for (String el : this.headers) {
+            if (el.startsWith("Content-Type")) {
+
+                final String[] contentTypeParts = el.split(" ");
+                String type = contentTypeParts[1];
+                if (type.startsWith(urlencodedType)) {
+
+                    this.bodyQuery = URLEncodedUtils.parse(new String(body), Charset.defaultCharset());
+                    break;
+
+                }
+            }
+        }
+        return body;
     }
 
     private int indexOf(byte[] array, byte[] target, int start, int end) {

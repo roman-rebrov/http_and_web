@@ -39,6 +39,7 @@ public class Servers {
                                 Map<String, Handler> handlerMap;
                                 final Request request = new Request(socket);
 
+
                                 try {
                                     final var out = new BufferedOutputStream(socket.getOutputStream());
                                     final Response response = new Response();
